@@ -1,13 +1,15 @@
 import { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, X, Grid, Cpu, CheckCircle, Clock, Sparkles, Eye, Download, Camera, Layout } from 'lucide-react';
+import { Upload, X, Grid, Cpu, CheckCircle, Clock, Sparkles, Eye, Download, Camera, Layout, Layers } from 'lucide-react';
 import './App.css';
 
 function App() {
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [status, setStatus] = useState('idle');
+  const [steps, setSteps] = useState(null);
+  const [showSteps, setShowSteps] = useState(false);
   const [history, setHistory] = useState([
     { id: 1, date: 'Feb 5', time: '14:20', preview: 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?auto=format&fit=crop&q=80&w=200', difficulty: 'Hard' },
     { id: 2, date: 'Feb 4', time: '09:15', preview: 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&q=80&w=200', difficulty: 'Medium' }
@@ -19,6 +21,8 @@ function App() {
       setFile(selectedFile);
       setPreview(URL.createObjectURL(selectedFile));
       setStatus('ready');
+      setSteps(null);
+      setShowSteps(false);
     }
   }, []);
 
@@ -28,19 +32,47 @@ function App() {
     multiple: false
   });
 
-  const handleSolve = () => {
+  const handleSolve = async () => {
+    if (!file) return;
+
     setStatus('processing');
-    setTimeout(() => {
-      setStatus('solved');
-      const newSolve = {
-        id: Date.now(),
-        date: 'Today',
-        time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-        preview: preview,
-        difficulty: 'Pending'
-      };
-      setHistory([newSolve, ...history]);
-    }, 3000);
+
+    const formData = new FormData();
+    formData.append('image', file);
+
+    try {
+      const response = await fetch('http://localhost:5000/api/extract-sudoku', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setPreview(data.image_data); // Show the extracted grid as the main preview
+        setSteps(data.steps);       // Store intermediate steps
+        setStatus('solved');
+
+        // Add to history
+        const newSolve = {
+          id: Date.now(),
+          date: 'Today',
+          time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+          preview: data.image_data,
+          difficulty: 'Extracted'
+        };
+        setHistory([newSolve, ...history]);
+      } else {
+        console.error('Extraction failed:', data.error);
+        alert('Failed to extract Sudoku: ' + data.error);
+        setStatus('ready');
+        if (data.steps) setSteps(data.steps); // Show steps even on failure if available
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Error connecting to server.');
+      setStatus('ready');
+    }
   };
 
   const removeImage = (e) => {
@@ -48,6 +80,8 @@ function App() {
     setFile(null);
     setPreview(null);
     setStatus('idle');
+    setSteps(null);
+    setShowSteps(false);
   };
 
   return (
@@ -165,14 +199,16 @@ function App() {
                       Execute Solver
                     </button>
                   )}
-                  {status === 'solved' && (
+                  {(status === 'solved' || (steps && status !== 'processing')) && (
                     <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                       <span style={{ fontSize: '1.2rem', color: '#4ade80', display: 'flex', gap: '0.5rem' }}>
-                        <CheckCircle /> Solution Verified
+                        <CheckCircle /> Extracted
                       </span>
-                      <button className="btn-gold" onClick={() => setStatus('ready')} style={{ fontSize: '0.9rem', padding: '0.8rem 2rem' }}>
-                        Export
-                      </button>
+                      {steps && (
+                        <button className="btn-gold" onClick={() => setShowSteps(true)} style={{ fontSize: '0.9rem', padding: '0.8rem 2rem', display: 'flex', gap: '0.5rem' }}>
+                          <Layers size={16} /> View Logic
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -213,6 +249,41 @@ function App() {
         </section>
 
       </main>
+
+      {/* Steps Overlay Modal */}
+      <AnimatePresence>
+        {showSteps && steps && (
+          <motion.div
+            className="modal-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setShowSteps(false)}
+          >
+            <motion.div
+              className="modal-content"
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                <h2 className="serif" style={{ color: 'var(--accent-gold)' }}>Processing Logic</h2>
+                <button onClick={() => setShowSteps(false)} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer' }}><X /></button>
+              </div>
+              <div className="steps-grid">
+                {Object.entries(steps).map(([name, imgSrc]) => (
+                  <div key={name} className="step-card">
+                    <h4 style={{ marginBottom: '0.5rem', color: 'var(--text-main)', fontSize: '0.9rem' }}>{name}</h4>
+                    <img src={imgSrc} alt={name} style={{ width: '100%', borderRadius: '4px', border: '1px solid var(--border-subtle)' }} />
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 }

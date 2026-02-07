@@ -249,3 +249,51 @@ h3,
 .animate-float {
   animation: float 6s ease-in-out infinite;
 }
+
+/* Modeal / Steps Overlay specific styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(8px);
+  z-index: 1000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 2rem;
+}
+
+.modal-content {
+  background: #1E1E1E;
+  /* bg-secondary */
+  border: 1px solid var(--border-gold);
+  border-radius: 20px;
+  padding: 2rem;
+  width: 90%;
+  height: 90%;
+  max-width: 1200px;
+  overflow-y: auto;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+.steps-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.5rem;
+}
+
+.step-card {
+  background: rgba(255, 255, 255, 0.03);
+  padding: 1rem;
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle);
+  transition: var(--transition);
+}
+
+.step-card:hover {
+  border-color: var(--accent-gold);
+  transform: translateY(-5px);
+}
