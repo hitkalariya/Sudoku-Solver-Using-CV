@@ -1,16 +1,16 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, X, Grid, Cpu, CheckCircle, Clock, Sparkles, Eye, Download, Camera } from 'lucide-react';
+import { Upload, X, Grid, Cpu, CheckCircle, Clock, Sparkles, Eye, Download, Camera, Layout } from 'lucide-react';
 import './App.css';
 
 function App() {
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
-  const [status, setStatus] = useState('idle'); // idle, processing, solved
+  const [status, setStatus] = useState('idle');
   const [history, setHistory] = useState([
-    { id: 1, date: '2026-02-05', time: '14:20', preview: 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&q=80&w=200', difficulty: 'Expert' },
-    { id: 2, date: '2026-02-04', time: '09:15', preview: 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?auto=format&fit=crop&q=80&w=200', difficulty: 'Hard' }
+    { id: 1, date: 'Feb 5', time: '14:20', preview: 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?auto=format&fit=crop&q=80&w=200', difficulty: 'Hard' },
+    { id: 2, date: 'Feb 4', time: '09:15', preview: 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&q=80&w=200', difficulty: 'Medium' }
   ]);
 
   const onDrop = useCallback((acceptedFiles) => {
@@ -18,7 +18,7 @@ function App() {
     if (selectedFile) {
       setFile(selectedFile);
       setPreview(URL.createObjectURL(selectedFile));
-      setStatus('idle');
+      setStatus('ready');
     }
   }, []);
 
@@ -29,20 +29,18 @@ function App() {
   });
 
   const handleSolve = () => {
-    if (!file) return;
     setStatus('processing');
-
     setTimeout(() => {
+      setStatus('solved');
       const newSolve = {
         id: Date.now(),
-        date: new Date().toISOString().split('T')[0],
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        date: 'Today',
+        time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
         preview: preview,
-        difficulty: 'Medium'
+        difficulty: 'Pending'
       };
-      setHistory(prev => [newSolve, ...prev]);
-      setStatus('solved');
-    }, 4000);
+      setHistory([newSolve, ...history]);
+    }, 3000);
   };
 
   const removeImage = (e) => {
@@ -53,180 +51,168 @@ function App() {
   };
 
   return (
-    <div className="premium-container">
-      {/* Header */}
-      <header className="hero-section">
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 1, ease: [0.23, 1, 0.32, 1] }}
-        >
-          <p className="subtitle animate-glow">The Pinnacle of Logic</p>
-          <h1>Sudoku <span className="luxury-italic luxury-font">Vision</span></h1>
-          <p style={{ maxWidth: '700px', margin: '0 auto', fontSize: '1.2rem', color: 'rgba(245, 245, 240, 0.7)' }}>
-            An exquisite computer vision experience, transcribing complexity into clarity.
-          </p>
-        </motion.div>
+    <div className="app-container">
+      {/* 1. Header Row */}
+      <header className="header">
+        <h1 className="logo">sudoku<span className="italic serif" style={{ color: 'var(--accent-gold)' }}>vision</span></h1>
+        <div style={{ display: 'flex', gap: '2rem', alignItems: 'center' }}>
+          <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>v1.0.0-Beta</span>
+          <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--gradient-gold)', border: '1px solid var(--accent-gold)' }}></div>
+        </div>
       </header>
 
-      {/* Main Solver Card */}
-      <main>
-        <motion.div
-          className="luxury-card"
-          initial={{ opacity: 0, scale: 0.98 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.4, duration: 1 }}
-        >
-          <AnimatePresence mode="wait">
-            {!preview ? (
-              <motion.div
-                key="dropzone"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                {...getRootProps()}
-                className="dropzone-luxury"
-              >
-                <input {...getInputProps()} />
-                <motion.div
-                  animate={{ y: [0, -5, 0] }}
-                  transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-                >
-                  <Upload size={40} strokeWidth={1} style={{ color: 'var(--accent-gold)' }} />
-                </motion.div>
-                <h2 className="luxury-font" style={{ marginTop: '1.5rem', fontWeight: 400 }}>
-                  Present Your <span className="luxury-italic">Puzzle</span>
-                </h2>
-                <p style={{ color: 'rgba(245, 245, 240, 0.5)', marginTop: '0.5rem' }}>
-                  Drop the image within these borders
-                </p>
-              </motion.div>
-            ) : (
-              <motion.div
-                key="preview"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="preview-section"
-                style={{ textAlign: 'center' }}
-              >
-                <div style={{ position: 'relative', maxWidth: '450px', margin: '0 auto' }}>
-                  <img src={preview} alt="Puzzle" style={{ width: '100%', border: '1px solid var(--accent-gold)' }} />
-                  {status === 'idle' && (
-                    <button onClick={removeImage} style={{ position: 'absolute', top: '-15px', right: '-15px', background: 'var(--bg-primary)', border: '1px solid var(--accent-gold)', color: 'var(--accent-gold)', padding: '5px', borderRadius: '50%', cursor: 'pointer' }}>
-                      <X size={16} />
-                    </button>
-                  )}
+      {/* 2. Main Dashboard Grid */}
+      <main className="dashboard-grid">
 
-                  {status === 'processing' && (
-                    <div style={{ position: 'absolute', inset: 0, background: 'rgba(26,26,26,0.9)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                      <motion.div
-                        animate={{ opacity: [0.3, 1, 0.3] }}
-                        transition={{ duration: 2, repeat: Infinity }}
-                      >
-                        <Sparkles size={40} color="var(--accent-gold)" />
-                      </motion.div>
-                      <p className="luxury-font" style={{ marginTop: '1rem', letterSpacing: '0.2em', color: 'var(--accent-gold)' }}>ORCHESTRATING SOLUTION</p>
-                    </div>
-                  )}
-                </div>
-
-                <div style={{ marginTop: '3rem' }}>
-                  {status === 'idle' && (
-                    <button className="gold-btn" onClick={handleSolve}>
-                      Transcribe & Solve
-                    </button>
-                  )}
-                  {status === 'solved' && (
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                      <p className="luxury-font" style={{ color: 'var(--accent-gold)', fontSize: '1.5rem' }}>Success <CheckCircle size={20} /></p>
-                      <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginTop: '1rem' }}>
-                        <button className="gold-btn" style={{ fontSize: '0.9rem' }} onClick={() => setStatus('idle')}>New Request</button>
-                        <button className="gold-btn" style={{ fontSize: '0.9rem' }}><Download size={14} /> Export Grid</button>
-                      </div>
-                    </motion.div>
-                  )}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </motion.div>
-
-        {/* History Section */}
-        <section className="history-section">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '3rem' }}>
-            <Clock size={24} color="var(--accent-gold)" />
-            <h2 className="luxury-font" style={{ fontSize: '2.5rem', fontWeight: 400 }}>
-              Past <span className="luxury-italic">Histories</span>
-            </h2>
+        {/* Left Panel: History */}
+        <section className="panel">
+          <div className="panel-header">
+            <Clock size={16} color="var(--accent-gold)" />
+            <span className="panel-title">Previous Insights</span>
           </div>
-
-          <div className="history-grid">
+          <div className="panel-content">
             {history.map((item) => (
               <motion.div
                 key={item.id}
                 className="history-item"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
                 whileHover={{ scale: 1.02 }}
               >
                 <img src={item.preview} className="history-thumb" alt="History" />
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <p style={{ fontSize: '0.8rem', opacity: 0.6 }}>{item.date} at {item.time}</p>
-                    <p className="luxury-font" style={{ color: 'var(--accent-gold)' }}>{item.difficulty} Level</p>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>{item.date}</span>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{item.time}</span>
                   </div>
-                  <Eye size={18} style={{ opacity: 0.4, cursor: 'pointer' }} />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.5rem' }}>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--accent-gold)' }}>{item.difficulty}</span>
+                    <Eye size={14} className="text-muted" />
+                  </div>
                 </div>
               </motion.div>
             ))}
           </div>
         </section>
+
+        {/* Center Panel: Main Solver */}
+        <section className="panel solver-panel">
+          {/* Main Action Area */}
+          <AnimatePresence mode="wait">
+            {!preview ? (
+              <motion.div
+                key="dropzone"
+                {...getRootProps()}
+                className="dropzone-area animate-float"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+              >
+                <input {...getInputProps()} />
+                <Upload size={64} color="var(--accent-gold)" strokeWidth={1} style={{ marginBottom: '1.5rem' }} />
+                <h2 style={{ fontSize: '2rem', marginBottom: '1rem', color: 'var(--text-main)' }} className="serif">
+                  Initialize <span className="italic">Sequence</span>
+                </h2>
+                <p style={{ color: 'var(--text-muted)' }}>Drag and drop or click to upload puzzle</p>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="preview"
+                className="dropzone-area"
+                style={{ border: 'none', background: 'transparent' }}
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+              >
+                <div style={{ position: 'relative', width: '100%', height: '80%', display: 'flex', justifyContent: 'center' }}>
+                  <img src={preview} className="main-preview" alt="Solver Target" />
+
+                  {status === 'processing' && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="glass"
+                      style={{
+                        position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
+                        alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(8px)', zIndex: 10
+                      }}
+                    >
+                      <motion.div animate={{ rotate: 360 }} transition={{ duration: 4, repeat: Infinity, ease: "linear" }}>
+                        <Cpu size={80} color="var(--accent-gold)" strokeWidth={1} />
+                      </motion.div>
+                      <h3 style={{ marginTop: '2rem', letterSpacing: '0.2rem' }} className="serif">COMPUTING LOGIC</h3>
+                    </motion.div>
+                  )}
+
+                  {/* Remove Button */}
+                  {status !== 'processing' && (
+                    <button
+                      onClick={removeImage}
+                      style={{
+                        position: 'absolute', top: 20, right: 20, background: 'rgba(0,0,0,0.5)',
+                        border: '1px solid var(--accent-gold)', borderRadius: '50%', padding: '0.8rem', cursor: 'pointer', color: '#fff'
+                      }}
+                    >
+                      <X size={20} />
+                    </button>
+                  )}
+                </div>
+
+                {/* Actions */}
+                <div style={{ marginTop: '2rem', display: 'flex', gap: '1rem' }}>
+                  {status === 'ready' && (
+                    <button className="btn-gold" onClick={handleSolve}>
+                      Execute Solver
+                    </button>
+                  )}
+                  {status === 'solved' && (
+                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                      <span style={{ fontSize: '1.2rem', color: '#4ade80', display: 'flex', gap: '0.5rem' }}>
+                        <CheckCircle /> Solution Verified
+                      </span>
+                      <button className="btn-gold" onClick={() => setStatus('ready')} style={{ fontSize: '0.9rem', padding: '0.8rem 2rem' }}>
+                        Export
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </section>
+
+        {/* Right Panel: Features & Future */}
+        <section className="panel">
+          <div className="panel-header">
+            <Sparkles size={16} color="var(--accent-gold)" />
+            <span className="panel-title">System Evolution</span>
+          </div>
+          <div className="panel-content" style={{ padding: 0 }}>
+            {/* Feature List */}
+            {[
+              { title: 'Real-time Vision', status: 'Coming Soon', desc: 'Live camera feed analysis with AR overlay.', icon: Camera },
+              { title: 'The Mentor', status: 'In Dev', desc: 'AI reasoner to teach you the logic behind moves.', icon: Cpu },
+              { title: 'Handwriting 2.0', status: 'Alpha', desc: 'Neural network tuned for artistic digits.', icon: Layout },
+            ].map((feat, i) => (
+              <div key={i} className="feature-item">
+                <span className="status-badge" style={{ opacity: i === 0 ? 1 : 0.7 }}>{feat.status}</span>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.5rem' }}>
+                  <feat.icon size={18} color="var(--accent-gold)" />
+                  <h4 style={{ fontWeight: 500 }}>{feat.title}</h4>
+                </div>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>{feat.desc}</p>
+              </div>
+            ))}
+
+            <div style={{ padding: '1.5rem', marginTop: 'auto', borderTop: '1px solid var(--border-subtle)' }}>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center' }}>
+                System Status: <span style={{ color: '#4ade80' }}>Online</span>
+              </p>
+            </div>
+          </div>
+        </section>
+
       </main>
-
-      {/* Future Features (Luxury Style) */}
-      <section className="features-section">
-        <div style={{ textAlign: 'center', marginBottom: '4rem' }}>
-          <p className="subtitle" style={{ color: 'var(--accent-forest)' }}>Evolution</p>
-          <h2 className="luxury-font" style={{ fontSize: '3rem', color: 'var(--text-dark)' }}>
-            The Future of <span className="luxury-italic">Sudoku Vision</span>
-          </h2>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '3rem' }}>
-          <FutureFeatureCard
-            icon={<Camera />}
-            title="Real-time Perception"
-            description="Live grid detection directly from your camera feed, solving as you watch."
-            tag="Coming Soon"
-          />
-          <FutureFeatureCard
-            icon={<Sparkles />}
-            title="The Mentor"
-            description="Intelligent hints that explain 'why' a move is made, not just 'what'."
-            tag="In Development"
-          />
-          <FutureFeatureCard
-            icon={<Grid />}
-            title="Handwriting Synthesis"
-            description="Advanced OCR capable of reading even the most artistic handwritten digits."
-            tag="Alpha"
-          />
-        </div>
-      </section>
-
-      <footer style={{ padding: '6rem 0', textAlign: 'center', color: 'rgba(245, 245, 240, 0.4)', borderTop: '1px solid rgba(245, 245, 240, 0.05)', marginTop: '5rem' }}>
-        <p className="luxury-font">EST. 2026 — SUDOKU VISION CURATED FOR EXCELLENCE</p>
-      </footer>
-    </div>
-  );
-}
-
-function FutureFeatureCard({ icon, title, description, tag }) {
-  return (
-    <div style={{ border: '1px solid rgba(26,26,26,0.1)', padding: '2.5rem', transition: 'all 0.4s' }}>
-      <span className="feature-tag">{tag}</span>
-      <div style={{ color: 'var(--accent-gold)', marginBottom: '1.5rem' }}>{icon}</div>
-      <h3 className="luxury-font" style={{ fontSize: '1.5rem', marginBottom: '1rem', color: 'var(--text-dark)' }}>{title}</h3>
-      <p style={{ color: 'rgba(26,26,26,0.6)', fontSize: '0.95rem' }}>{description}</p>
     </div>
   );
 }
