@@ -1,13 +1,7 @@
 import cv2
 import numpy as np
-import pytesseract
-import os
+import easyocr
 
-# Configure Tesseract path (Windows specific)
-# Try common location, otherwise rely on PATH
-tesseract_path = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
-if os.path.exists(tesseract_path):
-    pytesseract.pytesseract.tesseract_cmd = tesseract_path
 
 # Helper functions
 
@@ -149,11 +143,14 @@ def clean_and_center_digit(img):
 
 def get_prediction(boxes):
     """
-    Use pytesseract to predict numbers in each box.
+    Use EasyOCR to predict numbers in each box.
     """
     board = []
-    print("Starting OCR extraction...")
-    config = r'--oem 3 --psm 10 -c tessedit_char_whitelist=123456789'
+    print("Starting OCR extraction with EasyOCR...")
+    
+    # Initialize reader once
+    # gpu=False to be safe on standard machines, set to True if CUDA available
+    reader = easyocr.Reader(['en'], gpu=False) 
     
     debug_dir = "backend/debug_cells"
     import os
@@ -173,14 +170,21 @@ def get_prediction(boxes):
             cv2.imwrite(f"{debug_dir}/cell_{i}.png", digit_img)
         
         try:
-            text = pytesseract.image_to_string(digit_img, config=config)
-            text = text.strip()
+            # EasyOCR prediction
+            # allowlist='123456789' ensures we only get digits
+            result = reader.readtext(digit_img, allowlist='0123456789', detail=0)
             
-            if text.isdigit():
-                board.append(int(text))
+            if result:
+                text = result[0]
+                if text.isdigit():
+                    board.append(int(text))
+                else:
+                    board.append(0)
             else:
                 board.append(0)
-        except Exception:
+                
+        except Exception as e:
+            print(f"Error on cell {i}: {e}")
             board.append(0)
             
     # Reshape
