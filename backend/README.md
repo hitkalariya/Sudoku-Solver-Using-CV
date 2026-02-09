@@ -24,6 +24,11 @@ This is the Python Flash backend for the Sudoku Solver application.
    pip install -r requirements.txt
    ```
 
+3. **Install Tesseract OCR (Required for Text Recognition):**
+   - Download the installer from [Tesseract at UB Mannheim](https://github.com/UB-Mannheim/tesseract/wiki) or other source.
+   - Install to the default location: `C:\Program Files\Tesseract-OCR`.
+   - If installed elsewhere, add the installation path to your System Environment `PATH` variable.
+
 ## Running the Server
 
 Run the application using:

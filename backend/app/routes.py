@@ -25,8 +25,8 @@ def extract_sudoku():
         
         
         # 1. Detect and Extract Sudoku Grid
-        # image_processor now returns (grid_img, steps_dict)
-        grid_image, steps = image_processor.extract_sudoku_grid(image_bytes)
+        # image_processor now returns (grid_img, steps_dict, board)
+        grid_image, steps, board = image_processor.extract_sudoku_grid(image_bytes)
         
         # Prepare response data
         response_data = {}
@@ -52,9 +52,33 @@ def extract_sudoku():
         encoded_image = base64.b64encode(buffer).decode('utf-8')
         response_data['message'] = 'Sudoku grid extracted successfully'
         response_data['image_data'] = f"data:image/jpeg;base64,{encoded_image}"
+        response_data['board'] = board
         
         return jsonify(response_data)
 
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/solve-sudoku', methods=['POST'])
+def solve_sudoku():
+    if not request.is_json:
+        return jsonify({'error': 'Missing JSON in request'}), 400
+        
+    data = request.get_json()
+    board = data.get('board')
+    
+    if not board or not isinstance(board, list) or len(board) != 9:
+        return jsonify({'error': 'Invalid board format'}), 400
+        
+    try:
+        from .services import sudoku_solver
+        solution = sudoku_solver.solve_puzzle(board)
+        
+        if solution is None:
+            return jsonify({'error': 'Puzzle is unsolvable'}), 422
+            
+        return jsonify({'message': 'Puzzle solved successfully', 'solution': solution})
+        
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

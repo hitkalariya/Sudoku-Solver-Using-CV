@@ -9,6 +9,8 @@ function App() {
   const [preview, setPreview] = useState(null);
   const [status, setStatus] = useState('idle');
   const [steps, setSteps] = useState(null);
+  const [board, setBoard] = useState(null);
+  const [solution, setSolution] = useState(null);
   const [showSteps, setShowSteps] = useState(false);
   const [history, setHistory] = useState([
     { id: 1, date: 'Feb 5', time: '14:20', preview: 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?auto=format&fit=crop&q=80&w=200', difficulty: 'Hard' },
@@ -22,6 +24,8 @@ function App() {
       setPreview(URL.createObjectURL(selectedFile));
       setStatus('ready');
       setSteps(null);
+      setBoard(null);
+      setSolution(null);
       setShowSteps(false);
     }
   }, []);
@@ -51,6 +55,7 @@ function App() {
       if (response.ok) {
         setPreview(data.image_data); // Show the extracted grid as the main preview
         setSteps(data.steps);       // Store intermediate steps
+        setBoard(data.board);       // Store extracted board
         setStatus('solved');
 
         // Add to history
@@ -75,12 +80,44 @@ function App() {
     }
   };
 
+  const handleSolvePuzzle = async () => {
+    if (!board) return;
+
+    setStatus('solving_logic');
+
+    try {
+      const response = await fetch('http://localhost:5000/api/solve-sudoku', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ board }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setSolution(data.solution);
+        setStatus('fully_solved');
+
+        // Update history if needed
+      } else {
+        alert('Failed to solve: ' + data.error);
+        setStatus('solved'); // Go back to extracted state
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Error connecting to server.');
+      setStatus('solved');
+    }
+  };
+
   const removeImage = (e) => {
     e.stopPropagation();
     setFile(null);
     setPreview(null);
     setStatus('idle');
     setSteps(null);
+    setBoard(null);
+    setSolution(null);
     setShowSteps(false);
   };
 
@@ -212,6 +249,100 @@ function App() {
                     </div>
                   )}
                 </div>
+
+                {/* Extracted Board Debug */}
+                {/* Extracted Board & Solver Interface */}
+                {board && (
+                  <div className="board-container" style={{ marginTop: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.5rem' }}>
+
+                    {board.flat().every(c => c === 0) && (
+                      <div style={{ color: '#ff4d4d', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
+                        ⚠️ No digits detected. Please check image clarity or type manually.
+                      </div>
+                    )}
+
+                    <div className="board-grid" style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(9, 1fr)',
+                      gap: '2px',
+                      background: 'var(--border-subtle)',
+                      padding: '2px',
+                      width: '100%',
+                      maxWidth: '350px',
+                      aspectRatio: '1',
+                      borderRadius: '4px',
+                      overflow: 'hidden'
+                    }}>
+                      {(solution || board).flat().map((cell, idx) => {
+                        const row = Math.floor(idx / 9);
+                        const col = idx % 9;
+                        const isOriginal = board[row][col] !== 0;
+                        const value = (solution && solution[row][col]) || (board && board[row][col]);
+
+                        return (
+                          <div key={idx} style={{
+                            background: isOriginal ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.2)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            position: 'relative'
+                          }}>
+                            {/* Input for editing before solve, or display after solve */}
+                            {!solution ? (
+                              <input
+                                type="text"
+                                maxLength="1"
+                                value={value === 0 ? '' : value}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  if (val === '' || /^[1-9]$/.test(val)) {
+                                    // Deep copy to avoid mutating state directly
+                                    const newBoard = board.map(row => [...row]);
+                                    newBoard[row][col] = val === '' ? 0 : parseInt(val);
+                                    setBoard(newBoard);
+                                  }
+                                }}
+                                style={{
+                                  width: '100%',
+                                  height: '100%',
+                                  background: 'transparent',
+                                  border: 'none',
+                                  color: isOriginal ? 'var(--accent-gold)' : 'var(--text-main)',
+                                  textAlign: 'center',
+                                  fontSize: '1.2rem',
+                                  fontWeight: 'bold',
+                                  outline: 'none',
+                                  caretColor: 'var(--accent-gold)'
+                                }}
+                              />
+                            ) : (
+                              <span style={{
+                                color: isOriginal ? 'var(--accent-gold)' : '#4ade80',
+                                fontSize: '1.2rem',
+                                fontWeight: 'bold'
+                              }}>
+                                {value}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Solve Action */}
+                    {!solution && status === 'solved' && (
+                      <button className="btn-gold" onClick={handleSolvePuzzle} style={{ width: '100%' }}>
+                        Solve Puzzle
+                      </button>
+                    )}
+
+                    {solution && (
+                      <div style={{ color: '#4ade80', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.1rem' }}>
+                        <CheckCircle size={20} /> Puzzle Solved!
+                      </div>
+                    )}
+                  </div>
+                )}
               </motion.div>
             )}
           </AnimatePresence>
