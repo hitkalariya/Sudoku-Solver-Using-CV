@@ -72,8 +72,15 @@ def clean_and_center_digit(img):
     else:
         gray = img
         
-    # Threshold: text should be White, BG Black for contour finding
-    # Use generic thresholding or adaptive
+    # CLEAR BORDERS: Remove grid lines by blacking out a 5px margin
+    # This is safer than contour filtering for grid lines
+    margin = 4
+    gray[:margin, :] = 255
+    gray[-margin:, :] = 255
+    gray[:, :margin] = 255
+    gray[:, -margin:] = 255
+        
+    # Threshold: text to White, BG Black (INV)
     blur = cv2.GaussianBlur(gray, (3, 3), 0)
     thresh = cv2.adaptiveThreshold(blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 11, 2)
     
@@ -90,24 +97,23 @@ def clean_and_center_digit(img):
     
     for cnt in contours:
         area = cv2.contourArea(cnt)
-        # Filter small noise
-        if area < 50: 
+        # Filter very small noise
+        if area < 30: # Relaxed from 50
             continue
             
         x, y, cw, ch = cv2.boundingRect(cnt)
         
-        # Filter grid lines (too thin or too wide/tall reaching edges)
-        if cw < 5 or ch < 5: continue
-        # If it touches the edge, it might be a grid line
-        if x < 2 or y < 2 or (x+cw) > w-2 or (y+ch) > h-2:
-            continue
+        # Filter potential remaining grid lines (very thin)
+        if cw < 3 or ch < 8: continue 
             
-        current_center_dist = abs((x + cw/2) - center_x) + abs((y + ch/2) - center_y)
+        # Prioritize central digits
+        dist = abs((x + cw/2) - center_x) + abs((y + ch/2) - center_y)
         
-        # We prefer larger area, but also centralization
-        # Heuristic: Score = Area - Distance*Factor
-        if area > max_area:
-            max_area = area
+        # Scoring: Area is main factor, but penalize distance slightly
+        score = area - (dist * 0.5)
+        
+        if score > max_area:
+            max_area = score
             best_cnt = cnt
             
     if best_cnt is None:
@@ -117,29 +123,66 @@ def clean_and_center_digit(img):
     x, y, cw, ch = cv2.boundingRect(best_cnt)
     roi = thresh[y:y+ch, x:x+cw]
     
-    # 5. Create a new square image (Black Text on White BG for Tesseract)
-    # Tesseract prefers Black text. 'roi' is currently White text (THRESH_BINARY_INV).
-    # So we need to invert 'roi' to be Black text, 
-    # OR we make a White canvas and paste the Black version of 'roi' on it.
-    
-    # Let's invert ROI first -> Black text
-    roi = cv2.bitwise_not(roi)
+    # 5. Create a new square image (Black Text on White BG)
+    roi = cv2.bitwise_not(roi) # Invert to Black text on White
     
     # Prepare canvas
-    side = max(cw, ch) + 20 # 10px padding
-    canvas = np.ones((side, side), dtype=np.uint8) * 255 # White square
+    # Use a larger size for EasyOCR (e.g., 64x64 or 128x128)
+    side = max(cw, ch) + 30 # More padding
+    canvas = np.ones((side, side), dtype=np.uint8) * 255
     
     # Center ROI on canvas
     off_x = (side - cw) // 2
     off_y = (side - ch) // 2
-    
-    # Copy ROI onto canvas
     canvas[off_y:off_y+ch, off_x:off_x+cw] = roi
     
-    # 6. Resize for Tesseract (e.g. 28x28 is standard for ML, but Tesseract likes slightly larger)
-    final = cv2.resize(canvas, (50, 50), interpolation=cv2.INTER_AREA)
+    # 6. Final Resize
+    # Resize to standard height 64, keeping aspect ratio but on a square canvas
+    final = cv2.resize(canvas, (64, 64), interpolation=cv2.INTER_AREA)
     
     return final
+
+def clean_digit_v2(img):
+    """
+    Alternative cleaning strategy: simple thresholding without contour filtering.
+    Good for digits that fill the box.
+    """
+    h, w = img.shape[:2]
+    if len(img.shape) == 3:
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    else:
+        gray = img
+        
+    # Crop inner part to avoid borders
+    margin = 6
+    if h > 2*margin and w > 2*margin:
+        crop = gray[margin:h-margin, margin:w-margin]
+    else:
+        crop = gray
+        
+    # Otsu thresholding
+    _, thresh = cv2.threshold(crop, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    
+    # Check if empty (mostly white or mostly black)
+    cnt_black = np.sum(thresh == 0)
+    total = thresh.shape[0] * thresh.shape[1]
+    if cnt_black < 50 or cnt_black > total * 0.8:
+        return None
+        
+    # Pad to make it square 64x64
+    h_c, w_c = thresh.shape
+    side = max(h_c, w_c) + 20
+    canvas = np.ones((side, side), dtype=np.uint8) * 255
+    off_x = (side - w_c) // 2
+    off_y = (side - h_c) // 2
+    canvas[off_y:off_y+h_c, off_x:off_x+w_c] = thresh
+    
+    return cv2.resize(canvas, (64, 64), interpolation=cv2.INTER_AREA)
+
+
+# Initialize reader globally
+# model_storage_directory can be set if needed
+reader = easyocr.Reader(['en'], gpu=False, verbose=False)
 
 def get_prediction(boxes):
     """
@@ -147,10 +190,7 @@ def get_prediction(boxes):
     """
     board = []
     print("Starting OCR extraction with EasyOCR...")
-    
-    # Initialize reader once
-    # gpu=False to be safe on standard machines, set to True if CUDA available
-    reader = easyocr.Reader(['en'], gpu=False) 
+ 
     
     debug_dir = "backend/debug_cells"
     import os
@@ -170,19 +210,28 @@ def get_prediction(boxes):
             cv2.imwrite(f"{debug_dir}/cell_{i}.png", digit_img)
         
         try:
-            # EasyOCR prediction
-            # allowlist='123456789' ensures we only get digits
-            result = reader.readtext(digit_img, allowlist='0123456789', detail=0)
+            # Attempt 1: Standard cleaned digit
+            # allowlist='123456789' allows only 1-9. Added text_threshold optimization.
+            result = reader.readtext(digit_img, allowlist='123456789', detail=0, text_threshold=0.5, low_text=0.3)
             
+            val = 0
             if result:
                 text = result[0]
                 if text.isdigit():
-                    board.append(int(text))
-                else:
-                    board.append(0)
-            else:
-                board.append(0)
-                
+                    val = int(text)
+            
+            # Attempt 2: If failed, try alternative cleaning (Otsu)
+            if val == 0:
+                digit_img_v2 = clean_digit_v2(box)
+                if digit_img_v2 is not None:
+                     result_v2 = reader.readtext(digit_img_v2, allowlist='123456789', detail=0, text_threshold=0.4)
+                     if result_v2:
+                         text_v2 = result_v2[0]
+                         if text_v2.isdigit():
+                             val = int(text_v2)
+            
+            board.append(val)
+                 
         except Exception as e:
             print(f"Error on cell {i}: {e}")
             board.append(0)

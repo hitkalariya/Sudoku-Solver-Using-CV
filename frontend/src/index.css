@@ -161,23 +161,29 @@ h3,
 /* Main Solver Area */
 .solver-panel {
   position: relative;
-  justify-content: center;
+  justify-content: flex-start; /* Changed from center to allow scrolling from top */
   align-items: center;
   background: linear-gradient(145deg, rgba(30, 30, 30, 0.8), rgba(20, 20, 20, 0.9));
+  overflow-y: auto !important; /* Force scroll */
+  padding-top: 2rem; /* Add padding for spacing */
+  padding-bottom: 2rem;
 }
 
 .dropzone-area {
   width: 90%;
-  height: 90%;
+  min-height: 80%; /* Changed from fixed height */
+  height: auto;
   border: 2px dashed var(--border-gold);
   border-radius: 24px;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start; /* Align top */
   align-items: center;
   transition: var(--transition);
   cursor: pointer;
   background: rgba(197, 160, 89, 0.02);
+  padding: 1rem; /* Add padding */
+  margin: auto 0; /* Center vertically if small */
 }
 
 .dropzone-area:hover {
